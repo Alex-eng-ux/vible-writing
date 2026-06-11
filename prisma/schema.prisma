@@ -1,0 +1,122 @@
+// Prisma schema for Vible Writing — AI Novel Creation Workbench
+// MVP uses SQLite for zero-config local development.
+// The schema is designed to be portable to PostgreSQL later (json fields work in both).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  // A friendly display name (no password, no email yet — see auth design notes).
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects Project[]
+}
+
+// Backfill note: existing rows in dev DBs will fail the NOT NULL constraint
+// below. The migration includes a backfill step that assigns ownership to
+// a single `legacy` user so the migration is non-destructive. See
+// `prisma/migrations/<ts>_add_auth/migration.sql`.
+
+model Project {
+  id              String   @id @default(cuid())
+  title           String
+  rawIdea         String
+  genre           String?
+  targetLength    String?
+  stylePreference String?
+  // The full brief produced by the Prompt Optimizer.
+  brief           String?  // JSON-serialized
+  // Optimized prompt text (the long, structured brief).
+  optimizedPrompt String?
+  status          String   @default("active") // active | archived
+  // Owner of the project. Every Server Action calls `requireProjectOwner`
+  // before reading or writing project-scoped data; this is the only thing
+  // standing between us and an IDOR vulnerability.
+  ownerId         String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  owner              User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  chapters           Chapter[]
+  storyBible         StoryBible?
+  consistencyReports ConsistencyReport[]
+
+  @@index([ownerId])
+}
+
+model Chapter {
+  id            String   @id @default(cuid())
+  projectId     String
+  chapterNumber Int
+  title         String
+  // Outline is a JSON blob: { goal, summary, requiredBeats, relatedCharacters, relatedForeshadowing }
+  outline       String?  // JSON
+  content       String   @default("")
+  summary       String   @default("")
+  // status: draft | generated | in_review | finalized
+  status        String   @default("draft")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project             Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  consistencyReports  ConsistencyReport[]
+  factExtractions     FactExtraction[]
+
+  @@unique([projectId, chapterNumber])
+  @@index([projectId])
+}
+
+model StoryBible {
+  id              String   @id @default(cuid())
+  projectId       String   @unique
+  // Each is a JSON array of structured records
+  characters      String   @default("[]")
+  locations       String   @default("[]")
+  items           String   @default("[]")
+  worldRules      String   @default("[]")
+  plotThreads     String   @default("[]")
+  foreshadowing   String   @default("[]")
+  timelineEvents  String   @default("[]")
+  updatedAt       DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model FactExtraction {
+  id          String   @id @default(cuid())
+  chapterId   String
+  // The structured extraction result, JSON-serialized
+  payload     String   // JSON: { characters, locations, items, events, worldRules, characterStatusChanges, foreshadowing, timeline }
+  // status: pending | applied | dismissed
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  @@index([chapterId])
+}
+
+model ConsistencyReport {
+  id         String   @id @default(cuid())
+  projectId  String
+  chapterId  String
+  // issues is a JSON array of issue objects
+  issues     String   // JSON
+  // status: open | resolved | dismissed
+  status     String   @default("open")
+  createdAt  DateTime @default(now())
+
+  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  chapter Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([chapterId])
+}

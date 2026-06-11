@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f7f7f5;
+  --bg-elev: #ffffff;
+  --ink: #1a1a17;
+  --ink-soft: #56564f;
+  --border: #d6d6d1;
+  --accent: #5b4a35;
+  --danger: #9b2c2c;
+  /* Darkened from #b8860b (4.4:1) to #8a6508 (~6.5:1) for WCAG AA on
+     small text in chip-warn and badges. */
+  --warn: #8a6508;
+  --ok: #2f5d3a;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: #cfc4a8;
+  color: #1a1a17;
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-ink-200 bg-white;
+  }
+  .card-soft {
+    @apply rounded-lg border border-ink-200 bg-ink-50;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-ink-300 bg-white px-3 py-1.5 text-sm text-ink-800 transition hover:bg-ink-50 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-ink-800 bg-ink-800 px-3 py-1.5 text-sm text-white transition hover:bg-ink-700 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1 text-sm text-ink-600 transition hover:bg-ink-100;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-danger/30 bg-white px-3 py-1.5 text-sm text-danger transition hover:bg-danger/5;
+  }
+  .input {
+    @apply w-full rounded-md border border-ink-300 bg-white px-3 py-1.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-ink-700 focus:outline-none;
+  }
+  .textarea {
+    @apply w-full rounded-md border border-ink-300 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-ink-700 focus:outline-none;
+  }
+  .label {
+    @apply text-xs font-medium uppercase tracking-wider text-ink-500;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-ink-300 bg-white px-2 py-0.5 text-xs text-ink-700;
+  }
+  .chip-active {
+    @apply border-ink-800 bg-ink-800 text-white;
+  }
+  .chip-warn {
+    @apply border-warn/30 bg-warn/10 text-warn;
+  }
+  .chip-danger {
+    @apply border-danger/30 bg-danger/10 text-danger;
+  }
+  .chip-ok {
+    @apply border-ok/30 bg-ok/10 text-ok;
+  }
+  .tab {
+    @apply inline-flex items-center gap-1.5 border-b-2 border-transparent px-3 py-2 text-sm text-ink-500 hover:text-ink-800;
+  }
+  .tab-active {
+    @apply border-ink-800 text-ink-900;
+  }
+  .divider {
+    @apply h-px w-full bg-ink-200;
+  }
+  .status-dot {
+    @apply inline-block h-1.5 w-1.5 rounded-full;
+  }
+}
+
+.prose-novel {
+  font-family: 'Source Serif Pro', Georgia, serif;
+  line-height: 1.85;
+  font-size: 1rem;
+}
+.prose-novel p {
+  margin-bottom: 1.2em;
+  text-indent: 2em;
+}
+
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: #d6d6d1;
+  border-radius: 4px;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}

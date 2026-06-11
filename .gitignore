@@ -1,0 +1,51 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# testing
+coverage/
+
+# next.js
+.next/
+out/
+build/
+dist/
+
+# production
+*.local
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# local env files
+.env*.local
+.env
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Prisma local DB + dev artifacts
+prisma/dev.db
+prisma/dev.db-journal
+prisma/migrations/dev.db
+prisma/.migrations.lock
+
+# Editors
+.idea/
+.vscode/
+
+# Local downloads / extracted tarballs
+downloads/
+zod.tgz
