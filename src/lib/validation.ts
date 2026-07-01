@@ -8,7 +8,7 @@
 //      `Error` with a human-readable Chinese message).
 //
 // This file intentionally does NOT re-export any of the action signatures or
-// domain types — the consumers in `src/app/actions.ts` keep their existing
+// domain types - the consumers in `src/app/actions.ts` keep their existing
 // shapes; we only narrow inputs at the boundary.
 
 import { z } from 'zod';
@@ -17,24 +17,16 @@ import {
   BIBLE_RECORD_STATUSES,
   CHAPTER_STATUSES,
 } from '@/types/domain';
+import { UserError } from '@/lib/errors';
 
-// Re-export so callers can use the canonical lists without a second import.
 export { BIBLE_CATEGORIES, BIBLE_RECORD_STATUSES, CHAPTER_STATUSES };
 
-// Reusable cuid shape. We do not require strict cuid() — Next.js / Prisma's
-// default IDs are cuids, but the existing code never validates format, so we
-// just enforce a non-empty trimmed string of reasonable length.
 const cuidLike = z
   .string()
   .trim()
   .min(1, 'id 不能为空')
   .max(64, 'id 长度超出允许范围');
 
-// ---------- Reusable sub-schemas ----------
-
-// Matches `domain.ts` CreativeBrief. Field shapes are constrained loosely
-// (non-empty strings, bounded string lengths) so an LLM-built brief still
-// passes but a totally blank one does not.
 export const CreativeBriefSchema = z.object({
   completenessScore: z
     .number()
@@ -49,7 +41,10 @@ export const CreativeBriefSchema = z.object({
     .max(500, 'targetAudience 过长'),
   protagonist: z.object({
     name: z.string().max(200, 'protagonist.name 过长').optional(),
-    summary: z.string().min(1, 'protagonist.summary 不能为空').max(5_000, 'protagonist.summary 过长'),
+    summary: z
+      .string()
+      .min(1, 'protagonist.summary 不能为空')
+      .max(5_000, 'protagonist.summary 过长'),
   }),
   coreConflict: z.string().min(1, 'coreConflict 不能为空').max(5_000, 'coreConflict 过长'),
   worldDirection: z
@@ -59,14 +54,15 @@ export const CreativeBriefSchema = z.object({
   writingConstraints: z
     .array(z.string().min(1).max(2_000))
     .max(50, 'writingConstraints 数量超出限制'),
-  missingInfo: z.array(z.string().min(1).max(2_000)).max(50, 'missingInfo 数量超出限制'),
+  missingInfo: z
+    .array(z.string().min(1).max(2_000))
+    .max(50, 'missingInfo 数量超出限制'),
   directions: z.array(z.string().min(1).max(2_000)).max(10, 'directions 数量超出限制'),
   followUpQuestions: z
     .array(z.string().min(1).max(2_000))
     .max(50, 'followUpQuestions 数量超出限制'),
 });
 
-// A single bible record (matches `domain.ts` BibleRecord).
 export const BibleRecordSchema = z.object({
   id: cuidLike,
   name: z
@@ -81,15 +77,19 @@ export const BibleRecordSchema = z.object({
   status: z.enum(BIBLE_RECORD_STATUSES),
   sourceChapterId: cuidLike.optional(),
   evidence: z.string().max(50_000, 'evidence 过长').optional(),
-  updatedAt: z.string().min(1, 'updatedAt 不能为空').max(64, 'updatedAt 长度超出允许范围'),
+  updatedAt: z
+    .string()
+    .min(1, 'updatedAt 不能为空')
+    .max(64, 'updatedAt 长度超出允许范围'),
   attributes: z.record(z.unknown()).optional(),
 });
 
-// Chapter outline (matches `domain.ts` ChapterOutline).
 export const ChapterOutlineSchema = z.object({
   goal: z.string().max(5_000, 'goal 过长'),
   summary: z.string().max(5_000, 'summary 过长'),
-  requiredBeats: z.array(z.string().min(1).max(500)).max(50, 'requiredBeats 数量超出限制'),
+  requiredBeats: z
+    .array(z.string().min(1).max(500))
+    .max(50, 'requiredBeats 数量超出限制'),
   relatedCharacters: z
     .array(z.string().min(1).max(200))
     .max(30, 'relatedCharacters 数量超出限制'),
@@ -98,9 +98,6 @@ export const ChapterOutlineSchema = z.object({
     .max(30, 'relatedForeshadowing 数量超出限制'),
 });
 
-// ---------- Per-action schemas ----------
-
-// `createProjectAction(formData)` — convert FormData to a plain object first.
 export const createProjectSchema = z.object({
   rawIdea: z
     .string()
@@ -136,20 +133,17 @@ export const optimizePromptActionSchema = z.object({
   projectId: cuidLike.describe('项目 ID'),
 });
 
-// `adoptBriefAction(projectId, brief)`
 export const adoptBriefActionSchema = z.object({
   projectId: cuidLike.describe('项目 ID'),
   brief: CreativeBriefSchema,
 });
 
-// `addBibleRecordAction(projectId, category, record)`
 export const addBibleRecordActionSchema = z.object({
   projectId: cuidLike.describe('项目 ID'),
   category: z.enum(BIBLE_CATEGORIES).describe('圣经分类'),
   record: BibleRecordSchema,
 });
 
-// The 7-category facts object. Each record is fully validated by BibleRecordSchema.
 const factsCategoriesShape = BIBLE_CATEGORIES.reduce((acc, key) => {
   acc[key] = z.array(BibleRecordSchema);
   return acc;
@@ -157,9 +151,6 @@ const factsCategoriesShape = BIBLE_CATEGORIES.reduce((acc, key) => {
 
 const factsObjectSchema = z.object(factsCategoriesShape);
 
-// `applyFactsToBibleAction(projectId, facts, appliedExtractionId?)`
-// - each category array is bounded by BibleRecordSchema
-// - the sum across all 7 categories must be <= 500 (MAX_TOTAL in actions.ts)
 export const applyFactsToBibleActionSchema = z
   .object({
     projectId: cuidLike.describe('项目 ID'),
@@ -181,17 +172,14 @@ export const applyFactsToBibleActionSchema = z
     }
   });
 
-// `updateBibleRecordAction(projectId, category, record)`
 export const updateBibleRecordActionSchema = addBibleRecordActionSchema;
 
-// `deleteBibleRecordAction(projectId, category, recordId)`
 export const deleteBibleRecordActionSchema = z.object({
   projectId: cuidLike.describe('项目 ID'),
   category: z.enum(BIBLE_CATEGORIES).describe('圣经分类'),
   recordId: cuidLike.describe('记录 ID'),
 });
 
-// `generateOutlineAction(projectId, totalChapters, opts)`
 export const generateOutlineActionSchema = z.object({
   projectId: cuidLike.describe('项目 ID'),
   totalChapters: z
@@ -206,13 +194,11 @@ export const generateOutlineActionSchema = z.object({
     .default({}),
 });
 
-// `updateChapterOutlineAction(chapterId, outline)`
 export const updateChapterOutlineActionSchema = z.object({
   chapterId: cuidLike.describe('章节 ID'),
   outline: ChapterOutlineSchema,
 });
 
-// `createChapterAction(projectId, formData)` — FormData-derived.
 export const createChapterActionSchema = z.object({
   projectId: cuidLike.describe('项目 ID'),
   title: z
@@ -222,7 +208,6 @@ export const createChapterActionSchema = z.object({
     .max(200, '章节标题长度必须在 1-200 之间'),
 });
 
-// `saveChapterAction(chapterId, data)`
 export const saveChapterActionSchema = z.object({
   chapterId: cuidLike.describe('章节 ID'),
   data: z.object({
@@ -256,7 +241,6 @@ export const listConsistencyReportsActionSchema = z.object({
   projectId: cuidLike.describe('项目 ID'),
 });
 
-// `generateFixSuggestionAction(reportId, issueIndex)`
 export const generateFixSuggestionActionSchema = z.object({
   reportId: cuidLike.describe('报告 ID'),
   issueIndex: z
@@ -274,20 +258,9 @@ export const getProjectActionSchema = z.object({
 
 export const getProjectDetailActionSchema = getProjectActionSchema;
 
-// No-arg action — defined for symmetry so callers can use parseInput uniformly.
 export const voidSchema = z.void();
 export const listProjectsActionSchema = voidSchema;
 
-// ---------- Helper ----------
-
-/**
- * Run `schema.safeParse(value)` and throw a plain `Error` with a
- * human-readable Chinese message on failure.
- *
- * The thrown message has the shape `${label}: ${first issue message}`,
- * which keeps the contract with the existing UI: any thrown `Error` is
- * surfaced verbatim to the user.
- */
 export function parseInput<T>(
   value: unknown,
   schema: z.ZodType<T>,

@@ -11,7 +11,7 @@
 import type { BibleRecord, FactExtractionPayload, StoryBibleData } from '@/types/domain';
 
 /**
- * Generate a stable-ish id for a new BibleRecord. Not a real cuid —
+ * Generate a stable-ish id for a new BibleRecord. Not a real cuid:
  * `applyBibleFactsAtomic` will merge records by normalized name anyway,
  * so the id only needs to be unique within a single apply batch.
  */
@@ -67,7 +67,7 @@ export function payloadToBibleRecords(
     };
   });
 
-  // Surface characters from statusChanges that weren't otherwise listed.
+  // Surface characters from status changes that weren't otherwise listed.
   for (const cs of payload.characterStatusChanges) {
     if (existingCharNames.has(cs.character)) continue;
     if (characters.some((c) => c.name === cs.character)) continue;
@@ -139,18 +139,21 @@ export function summarizePayload(payload: FactExtractionPayload): {
   events: string;
   statusChanges: string;
 } {
-  const fmt = (arr: Array<{ name: string }>) => {
-    if (arr.length === 0) return '—';
-    const names = arr.slice(0, 3).map((x) => x.name).join('、');
-    return arr.length > 3 ? `${names} 等 ${arr.length} 项` : names;
+  const emptyLabel = '—';
+  const joiner = '、';
+  const formatNames = (names: string[]) => {
+    if (names.length === 0) return emptyLabel;
+    const preview = names.slice(0, 3).join(joiner);
+    return names.length > 3 ? `${preview} 等 ${names.length} 项` : preview;
   };
+
   return {
-    characters: fmt(payload.characters),
-    locations: fmt(payload.locations),
-    items: fmt(payload.items),
-    worldRules: fmt(payload.worldRules),
-    foreshadowing: fmt(payload.foreshadowing),
-    events: fmt(payload.events),
-    statusChanges: fmt(payload.characterStatusChanges),
+    characters: formatNames(payload.characters.map((x) => x.name)),
+    locations: formatNames(payload.locations.map((x) => x.name)),
+    items: formatNames(payload.items.map((x) => x.name)),
+    worldRules: formatNames(payload.worldRules.map((x) => x.name)),
+    foreshadowing: formatNames(payload.foreshadowing.map((x) => x.name)),
+    events: formatNames(payload.events.map((x) => x.name)),
+    statusChanges: formatNames(payload.characterStatusChanges.map((x) => x.character)),
   };
 }

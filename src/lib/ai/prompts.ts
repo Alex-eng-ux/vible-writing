@@ -1,6 +1,8 @@
-// Centralized prompt templates. Keeping them in one place makes it easy to iterate.
+﻿// Centralized prompt templates. Keeping them in one place makes it easy to iterate.
 // All functions return structured JSON. If the model returns invalid JSON,
 // the AI service will fall back to mock data so the user flow is never blocked.
+
+const CHINESE_OUTPUT_RULE = '默认使用简体中文输出所有正文、标题、摘要、建议和解释。只有 JSON 键名保持英文，JSON 的值内容使用中文。';
 
 export const PROMPTS = {
   optimizePrompt: (input: {
@@ -10,6 +12,7 @@ export const PROMPTS = {
     stylePreference?: string;
   }) => `You are a senior fiction editor. The user has a raw, possibly vague story idea.
 Your job is to analyze it, identify what is missing, and produce a structured creative brief.
+${CHINESE_OUTPUT_RULE}
 
 Return ONLY valid JSON with this exact shape:
 {
@@ -45,6 +48,7 @@ Be specific and concrete. Do not write the actual story, only the brief.`,
   }) => `You are a professional long-form story architect.
 Given the creative brief below, design ${ctx.totalChapters} chapter outlines that form a coherent arc.
 Each chapter should advance the plot and connect to the global story.
+${CHINESE_OUTPUT_RULE}
 
 Return ONLY valid JSON with this exact shape:
 {
@@ -79,6 +83,7 @@ ${ctx.refinedIdea}
     writingConstraints: string[];
     targetLengthWords: number;
   }) => `You are a professional long-form fiction author. Write chapter ${ctx.chapterNumber}.
+${CHINESE_OUTPUT_RULE}
 
 Title: ${ctx.title}
 Goal: ${ctx.outline.goal}
@@ -126,6 +131,7 @@ The "summary" should be 2-4 sentences capturing what happens in this chapter, su
     characters: Array<{ name: string; description: string; status: string }>;
     targetLengthWords: number;
   }) => `You are continuing chapter ${ctx.chapterNumber} titled "${ctx.title}".
+${CHINESE_OUTPUT_RULE}
 
 Existing content so far:
 """
@@ -150,6 +156,7 @@ Return ONLY valid JSON: { "content": string, "summary": string }.`,
     styleHints?: string;
   }) => `You are a senior fiction editor. Polish the following ${ctx.mode === 'selection' ? 'selected passage' : 'full text'}.
 Improve prose quality, clarity, rhythm, and consistency with the story's voice. Do not change plot facts.
+${CHINESE_OUTPUT_RULE}
 ${ctx.styleHints ? `Style hints: ${ctx.styleHints}` : ''}
 
 Return ONLY valid JSON: { "content": string }.
@@ -173,6 +180,7 @@ ${ctx.text}
     };
   }) => `You are a careful continuity editor. Read the chapter below and extract EVERY relevant fact
 that should be tracked in the Story Bible for a long-form novel.
+${CHINESE_OUTPUT_RULE}
 
 Chapter ${ctx.chapterNumber}: ${ctx.title}
 """
@@ -220,31 +228,32 @@ Be thorough but not redundant. Only include items that actually appear in the ch
     writingConstraints: string[];
   }) => `You are a meticulous continuity editor for a long-form novel.
 Compare the chapter below against the project's Story Bible. Report any conflicts.
+${CHINESE_OUTPUT_RULE}
 
 Chapter ${ctx.chapterNumber}: ${ctx.title}
-${ctx.outline ? `Outline — goal: ${ctx.outline.goal}\nOutline — summary: ${ctx.outline.summary}` : ''}
+${ctx.outline ? `Outline goal: ${ctx.outline.goal}\nOutline summary: ${ctx.outline.summary}` : ''}
 
 Chapter content:
 """
 ${ctx.content}
 """
 
-Story Bible — Characters:
+Story Bible Characters:
 ${ctx.storyBible.characters.map((c) => `- ${c.name} (${c.status}): ${c.description}`).join('\n') || '(none)'}
 
-Story Bible — Locations:
+Story Bible Locations:
 ${ctx.storyBible.locations.map((l) => `- ${l.name}: ${l.description}`).join('\n') || '(none)'}
 
-Story Bible — Items:
+Story Bible Items:
 ${ctx.storyBible.items.map((i) => `- ${i.name}: ${i.description}`).join('\n') || '(none)'}
 
-Story Bible — World Rules:
+Story Bible World Rules:
 ${ctx.storyBible.worldRules.map((r) => `- ${r.name}: ${r.description}`).join('\n') || '(none)'}
 
-Story Bible — Foreshadowing (open):
+Story Bible Foreshadowing (open):
 ${ctx.storyBible.foreshadowing.map((f) => `- ${f.name} (${f.status}): ${f.description}`).join('\n') || '(none)'}
 
-Story Bible — Timeline:
+Story Bible Timeline:
 ${ctx.storyBible.timelineEvents.map((t) => `- ${t.name}: ${t.description}`).join('\n') || '(none)'}
 
 Writing constraints:
@@ -284,13 +293,14 @@ If there are no issues, return { "issues": [] }. Do not invent problems.`,
     };
     chapterContent: string;
   }) => `You are a senior fiction editor fixing a continuity issue.
+${CHINESE_OUTPUT_RULE}
 
 Issue:
 - Type: ${ctx.issue.type}
 - Severity: ${ctx.issue.severity}
 - Message: ${ctx.issue.message}
 - Evidence:
-${ctx.issue.evidence.map((e) => `  • [${e.source}${e.chapterNumber ? ` ch.${e.chapterNumber}` : ''}] ${e.quote}`).join('\n')}
+${ctx.issue.evidence.map((e) => `  - [${e.source}${e.chapterNumber ? ` ch.${e.chapterNumber}` : ''}] ${e.quote}`).join('\n')}
 - Suggestions offered: ${ctx.issue.suggestions.join('; ') || '(none)'}
 
 Chapter content (for context):

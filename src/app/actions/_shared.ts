@@ -8,7 +8,7 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { CHAPTER_STATUSES } from '@/lib/validation';
-import { requireProjectOwner } from '@/lib/auth';
+import { requireProjectOwner as requireProjectOwnerAuth } from '@/lib/auth';
 import { UserError } from '@/lib/errors';
 
 /**
@@ -17,6 +17,7 @@ import { UserError } from '@/lib/errors';
  * edit keeps both the zod schema and this runtime set in sync.
  */
 export const ALLOWED_CHAPTER_STATUS: ReadonlySet<string> = new Set(CHAPTER_STATUSES);
+export const requireProjectOwner = requireProjectOwnerAuth;
 
 /**
  * Revalidate every project-scoped route. Call after any mutation that

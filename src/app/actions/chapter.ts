@@ -1,15 +1,22 @@
 'use server';
 
+import { getOrCreateBible } from '@/lib/bible';
 import { prisma } from '@/lib/db';
+import { UserError } from '@/lib/errors';
 import { safeJsonParse } from '@/lib/json';
-import type { ChapterOutline } from '@/types/domain';
+import type { ChapterOutline, CreativeBrief } from '@/types/domain';
 import {
   parseInput,
   createChapterActionSchema,
   saveChapterActionSchema,
   getChapterActionSchema,
 } from '@/lib/validation';
-import { ALLOWED_CHAPTER_STATUS, revalidateProject } from './_shared';
+import {
+  ALLOWED_CHAPTER_STATUS,
+  revalidateProject,
+  requireChapterOwner,
+  requireProjectOwner,
+} from './_shared';
 
 export async function createChapterAction(projectId: string, formData: FormData) {
   const raw = {
@@ -36,11 +43,6 @@ export async function saveChapterAction(
 ) {
   parseInput({ chapterId, data }, saveChapterActionSchema, 'saveChapterAction');
   await requireChapterOwner(chapterId);
-  // zod has already enforced title (1-200) / summary (<= 2,000) / content (<= 1,000,000) /
-  // status (CHAPTER_STATUSES). The `ALLOWED_CHAPTER_STATUS` check below is a
-  // defense-in-depth guard against an older client payload slipping past zod
-  // (e.g. a future "saveAnyStatus" code path). Keep it, but treat a mismatch
-  // as "drop the field", not as a hard error.
   const safeData = {
     ...data,
     status: data.status && ALLOWED_CHAPTER_STATUS.has(data.status) ? data.status : undefined,
@@ -61,5 +63,158 @@ export async function getChapterAction(chapterId: string) {
   return {
     ...chapter,
     outline: safeJsonParse<ChapterOutline | null>(chapter.outline, null),
+  };
+}
+
+export async function generateChapterAction(chapterId: string) {
+  parseInput({ chapterId }, getChapterActionSchema, 'generateChapterAction');
+  await requireChapterOwner(chapterId);
+
+  const { generateChapter } = await import('@/lib/ai/service');
+  const chapter = await prisma.chapter.findUnique({ where: { id: chapterId } });
+  if (!chapter) throw new UserError('Chapter not found', 'chapter_not_found');
+
+  const project = await prisma.project.findUnique({ where: { id: chapter.projectId } });
+  if (!project) throw new UserError('Project not found', 'project_not_found');
+
+  const brief = safeJsonParse<CreativeBrief | null>(project.brief, null);
+  const bible = await getOrCreateBible(project.id);
+  const outline = safeJsonParse<ChapterOutline | null>(chapter.outline, null);
+  const previousChapter = await prisma.chapter.findFirst({
+    where: {
+      projectId: project.id,
+      chapterNumber: { lt: chapter.chapterNumber },
+    },
+    orderBy: { chapterNumber: 'desc' },
+    select: { summary: true },
+  });
+
+  const { content, summary, mock } = await generateChapter({
+    brief,
+    chapterNumber: chapter.chapterNumber,
+    title: chapter.title,
+    outline: outline ?? {
+      goal: '',
+      summary: '',
+      requiredBeats: [],
+      relatedCharacters: [],
+      relatedForeshadowing: [],
+    },
+    previousChapterSummary: previousChapter?.summary || '',
+    characters: bible.characters,
+    locations: bible.locations,
+    items: bible.items,
+    worldRules: bible.worldRules,
+    foreshadowing: bible.foreshadowing.filter((item) => item.status === 'active'),
+    writingConstraints: brief?.writingConstraints ?? [],
+  });
+
+  const updated = await prisma.chapter.update({
+    where: { id: chapterId },
+    data: {
+      content,
+      summary,
+      status: 'generated',
+    },
+  });
+
+  revalidateProject(project.id);
+  return {
+    chapter: {
+      ...updated,
+      outline: safeJsonParse<ChapterOutline | null>(updated.outline, null),
+    },
+    mock: !!mock,
+  };
+}
+
+export async function continueChapterAction(chapterId: string) {
+  parseInput({ chapterId }, getChapterActionSchema, 'continueChapterAction');
+  await requireChapterOwner(chapterId);
+
+  const { continueChapter } = await import('@/lib/ai/service');
+  const chapter = await prisma.chapter.findUnique({ where: { id: chapterId } });
+  if (!chapter) throw new UserError('Chapter not found', 'chapter_not_found');
+
+  const bible = await getOrCreateBible(chapter.projectId);
+  const previousChapter = await prisma.chapter.findFirst({
+    where: {
+      projectId: chapter.projectId,
+      chapterNumber: { lt: chapter.chapterNumber },
+    },
+    orderBy: { chapterNumber: 'desc' },
+    select: { summary: true },
+  });
+
+  const { content, summary, mock } = await continueChapter({
+    chapterNumber: chapter.chapterNumber,
+    title: chapter.title,
+    existingContent: chapter.content,
+    previousSummary: previousChapter?.summary || '',
+    characters: bible.characters.map((item) => ({
+      name: item.name,
+      description: item.description,
+      status: item.status,
+    })),
+  });
+
+  const nextContent = chapter.content + content;
+  const updated = await prisma.chapter.update({
+    where: { id: chapterId },
+    data: {
+      content: nextContent,
+      summary,
+    },
+  });
+
+  revalidateProject(chapter.projectId);
+  return {
+    chapter: {
+      ...updated,
+      outline: safeJsonParse<ChapterOutline | null>(updated.outline, null),
+    },
+    mock: !!mock,
+  };
+}
+
+export async function polishChapterAction(
+  chapterId: string,
+  target: 'selection' | 'full',
+  selectionText?: string
+) {
+  parseInput({ chapterId }, getChapterActionSchema, 'polishChapterAction');
+  await requireChapterOwner(chapterId);
+
+  const { polishText } = await import('@/lib/ai/service');
+  const chapter = await prisma.chapter.findUnique({ where: { id: chapterId } });
+  if (!chapter) throw new UserError('Chapter not found', 'chapter_not_found');
+
+  if (target === 'selection' && !selectionText?.trim()) {
+    throw new UserError('请先选中要润色的段落。', 'selection_required');
+  }
+
+  const sourceText = target === 'selection' ? selectionText!.trim() : chapter.content;
+  const { content, mock } = await polishText({ text: sourceText, mode: target });
+
+  let nextContent = content;
+  if (target === 'selection') {
+    if (chapter.content.split(selectionText as string).length !== 2) {
+      throw new UserError('选中的内容已经变化，请重新选择后再试。', 'selection_stale');
+    }
+    nextContent = chapter.content.split(selectionText as string).join(content);
+  }
+
+  const updated = await prisma.chapter.update({
+    where: { id: chapterId },
+    data: { content: nextContent },
+  });
+
+  revalidateProject(chapter.projectId);
+  return {
+    chapter: {
+      ...updated,
+      outline: safeJsonParse<ChapterOutline | null>(updated.outline, null),
+    },
+    mock: !!mock,
   };
 }

@@ -44,9 +44,7 @@ export function Section({
       <header className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h2 className="text-base font-semibold text-ink-900">{title}</h2>
-          {description ? (
-            <p className="mt-0.5 text-sm text-ink-500">{description}</p>
-          ) : null}
+          {description ? <p className="mt-0.5 text-sm text-ink-500">{description}</p> : null}
         </div>
         {right ? <div className="flex shrink-0 items-center gap-2">{right}</div> : null}
       </header>
@@ -77,13 +75,15 @@ export function Field({
   label,
   hint,
   children,
+  className,
 }: {
   label: string;
   hint?: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <label className="block space-y-1.5">
+    <label className={clsx('block space-y-1.5', className)}>
       <span className="label">{label}</span>
       {children}
       {hint ? <span className="block text-xs text-ink-500">{hint}</span> : null}

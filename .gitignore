@@ -1,5 +1,6 @@
 # dependencies
 node_modules/
+.npm-cache/
 .pnp
 .pnp.js
 
@@ -42,6 +43,15 @@ prisma/dev.db-journal
 prisma/migrations/dev.db
 prisma/.migrations.lock
 
+# Root-level dev SQLite (sometimes created by scripts)
+/dev.db
+/dev.db-journal
+
+# Deploy artifacts
+.deploy/
+deploy.zip
+*.zip
+
 # Editors
 .idea/
 .vscode/
@@ -49,3 +59,8 @@ prisma/.migrations.lock
 # Local downloads / extracted tarballs
 downloads/
 zod.tgz
+
+# Python (deploy scripts)
+__pycache__/
+*.pyc
+*.pyo

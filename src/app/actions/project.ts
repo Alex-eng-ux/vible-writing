@@ -52,7 +52,6 @@ export async function createProjectAction(formData: FormData) {
 export async function listProjectsAction() {
   parseInput(undefined, listProjectsActionSchema, 'listProjectsAction');
   const ownerId = currentUserId();
-  // Filter by owner so a logged-in user only sees their own projects.
   return prisma.project.findMany({
     where: { ownerId },
     orderBy: { updatedAt: 'desc' },
@@ -114,7 +113,10 @@ export async function optimizePromptAction(projectId: string) {
     data: {
       brief: safeJsonStringify(brief),
       optimizedPrompt: brief.refinedIdea,
-      title: project.title === '未命名作品' && brief.protagonist.name ? `${brief.protagonist.name} 的故事` : project.title,
+      title:
+        project.title === '未命名作品' && brief.protagonist.name
+          ? `${brief.protagonist.name} 的故事`
+          : project.title,
     },
   });
 
@@ -125,7 +127,6 @@ export async function optimizePromptAction(projectId: string) {
 export async function adoptBriefAction(projectId: string, brief: CreativeBrief) {
   parseInput({ projectId, brief }, adoptBriefActionSchema, 'adoptBriefAction');
   await requireProjectOwner(projectId);
-  // Build the initial Story Bible from the brief.
   const foundation = await generateStoryFoundation(brief);
 
   await prisma.$transaction(async (tx) => {

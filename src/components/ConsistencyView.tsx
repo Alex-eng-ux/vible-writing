@@ -34,9 +34,6 @@ type ReportRow = {
   chapter?: { id: string; title: string; chapterNumber: number };
 };
 
-// Defensive shape normalization. The DB column is a JSON string; if a record
-// is missing fields (older shape, bad LLM output, manual edit) we still want
-// the page to render without throwing.
 function normalizeIssue(raw: Partial<ConsistencyIssue> | null | undefined): ConsistencyIssue {
   const allowedSeverities = ['critical', 'warning', 'info'] as const;
   const allowedStatus = ['open', 'resolved', 'dismissed'] as const;
@@ -52,8 +49,8 @@ function normalizeIssue(raw: Partial<ConsistencyIssue> | null | undefined): Cons
     severity: sev,
     type: (raw?.type as ConsistencyIssue['type']) || 'style_or_constraint_violation',
     message: raw?.message || '（未提供问题描述）',
-    evidence: Array.isArray(raw?.evidence) ? raw!.evidence : [],
-    suggestions: Array.isArray(raw?.suggestions) ? raw!.suggestions : [],
+    evidence: Array.isArray(raw?.evidence) ? raw.evidence : [],
+    suggestions: Array.isArray(raw?.suggestions) ? raw.suggestions : [],
     status: st,
   };
 }
@@ -98,7 +95,6 @@ export default function ConsistencyView({
           id,
           projectId,
           chapterId,
-          // Use the canonical server time, not a client-generated one.
           createdAt: createdAt ?? new Date().toISOString(),
           issues: normalizeIssues(issues),
           status: 'open',
@@ -157,7 +153,6 @@ export default function ConsistencyView({
       try {
         await markIssueResolvedAction(reportId, issueIndex);
       } catch (err) {
-        // Roll back optimistic update so the user can retry.
         applyLocalUpdate(reportId, issueIndex, 'open');
         setError(formatUserFacingError(err));
       } finally {
@@ -165,6 +160,7 @@ export default function ConsistencyView({
       }
     });
   }
+
   function dismiss(reportId: string, issueIndex: number) {
     const key = `${reportId}:${issueIndex}`;
     applyLocalUpdate(reportId, issueIndex, 'dismissed');
@@ -228,7 +224,7 @@ export default function ConsistencyView({
             历史报告
           </div>
           {localReports.length === 0 ? (
-            <div className="px-2 py-2 text-sm text-ink-500">尚无报告。</div>
+            <div className="px-2 py-2 text-sm text-ink-500">暂无报告。</div>
           ) : (
             <ul className="space-y-1">
               {localReports.map((r) => (
@@ -285,7 +281,7 @@ export default function ConsistencyView({
         ) : null}
         {localReports.length === 0 ? (
           <div className="card-soft px-6 py-10 text-center text-sm text-ink-500">
-            还没有任何一致性报告。选择一个章节并点击「运行一致性检查」。
+            还没有任何一致性报告。选择一个章节并点击“运行一致性检查”。
           </div>
         ) : (
           localReports.map((r) => {
@@ -304,10 +300,7 @@ export default function ConsistencyView({
                   hour12: false,
                 })} · 共 ${r.issues.length} 个问题（${open.length} 待处理 / ${resolved.length} 已处理 / ${dismissed.length} 已忽略）`}
                 right={
-                  <Link
-                    href={`/projects/${projectId}/chapters/${r.chapterId}`}
-                    className="btn"
-                  >
+                  <Link href={`/projects/${projectId}/chapters/${r.chapterId}`} className="btn">
                     打开章节
                   </Link>
                 }
@@ -341,7 +334,7 @@ export default function ConsistencyView({
                                     {e.chapterNumber ? ` ch.${e.chapterNumber}` : ''}
                                     {e.field ? ` · ${e.field}` : ''}]
                                   </span>{' '}
-                                  「{e.quote}」
+                                  “{e.quote}”
                                 </li>
                               ))}
                             </ul>
@@ -432,7 +425,7 @@ function FixBlock({ suggestion }: { suggestion: FixSuggestion }) {
         ))}
       </div>
       <div className="mt-3 text-[11px] text-ink-500">
-        提示：点击「打开章节」手动复制到正文。`applyPatchToChapter` 已实现，可由未来的「一键应用」按钮调用。
+        提示：点击“打开章节”手动复制到正文。`applyPatchToChapter` 已实现，可由未来的“一键应用”按钮调用。
       </div>
     </div>
   );

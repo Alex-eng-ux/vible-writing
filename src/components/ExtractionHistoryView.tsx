@@ -7,7 +7,7 @@ import { summarizePayload } from '@/lib/extraction';
 import { applyFactsToBibleAction } from '@/app/actions';
 import type { FactExtractionPayload, StoryBibleData } from '@/types/domain';
 
-interface Row {
+interface RowData {
   id: string;
   createdAt: string;
   status: string;
@@ -28,12 +28,13 @@ const STATUS_TONE: Record<string, string> = {
 
 export default function ExtractionHistoryView({
   projectId,
+  chapterId,
   rows,
   existingBible,
 }: {
   projectId: string;
   chapterId: string;
-  rows: Row[];
+  rows: RowData[];
   existingBible: StoryBibleData;
 }) {
   const router = useRouter();
@@ -45,25 +46,19 @@ export default function ExtractionHistoryView({
   if (rows.length === 0) {
     return (
       <div className="card-soft px-6 py-12 text-center text-sm text-ink-500">
-        本章还没有提取记录。回到章节编辑器运行一次「提取设定」即可生成第一条。
+        本章还没有提取记录。回到章节编辑器运行一次“提取事实”即可生成第一条。
       </div>
     );
   }
 
-  function handleApply(row: Row) {
+  function handleApply(row: RowData) {
     if (!row.payload) return;
     setError(null);
     setBusyId(row.id);
     startTransition(async () => {
       try {
-        // Lazy import to avoid pulling the editor's larger bundle into
-        // the page chrome on first render.
         const { payloadToBibleRecords } = await import('@/lib/extraction');
-        const records = payloadToBibleRecords(
-          row.payload!,
-          chapterId,
-          existingBible
-        );
+        const records = payloadToBibleRecords(row.payload!, chapterId, existingBible);
         await applyFactsToBibleAction(projectId, records, row.id);
         router.refresh();
       } catch (e) {
@@ -99,11 +94,7 @@ export default function ExtractionHistoryView({
               >
                 {STATUS_LABELS[row.status] ?? row.status}
               </span>
-              <time
-                className="text-sm text-ink-500"
-                dateTime={row.createdAt}
-                title={row.createdAt}
-              >
+              <time className="text-sm text-ink-500" dateTime={row.createdAt} title={row.createdAt}>
                 {new Date(row.createdAt).toLocaleString('zh-CN', { hour12: false })}
               </time>
               <span className="ml-auto flex items-center gap-2">
@@ -129,13 +120,13 @@ export default function ExtractionHistoryView({
 
             {preview ? (
               <dl className="grid grid-cols-1 gap-x-6 gap-y-1 border-t border-ink-100 px-4 py-3 text-xs text-ink-600 sm:grid-cols-2 md:grid-cols-3">
-                <Row label="人物" value={preview.characters} />
-                <Row label="地点" value={preview.locations} />
-                <Row label="物品" value={preview.items} />
-                <Row label="世界规则" value={preview.worldRules} />
-                <Row label="伏笔" value={preview.foreshadowing} />
-                <Row label="事件" value={preview.events} />
-                <Row label="状态变化" value={preview.statusChanges} />
+                <InfoRow label="人物" value={preview.characters} />
+                <InfoRow label="地点" value={preview.locations} />
+                <InfoRow label="物品" value={preview.items} />
+                <InfoRow label="世界规则" value={preview.worldRules} />
+                <InfoRow label="伏笔" value={preview.foreshadowing} />
+                <InfoRow label="事件" value={preview.events} />
+                <InfoRow label="状态变化" value={preview.statusChanges} />
               </dl>
             ) : null}
 
@@ -151,7 +142,7 @@ export default function ExtractionHistoryView({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-2">
       <dt className="shrink-0 text-ink-500">{label}</dt>

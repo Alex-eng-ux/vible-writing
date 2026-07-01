@@ -22,19 +22,18 @@ export type BibleCategory = (typeof BIBLE_CATEGORIES)[number];
 export const BIBLE_CATEGORY_KEYS = BIBLE_CATEGORIES;
 
 export const BIBLE_CATEGORY_LABELS: Record<BibleCategory, { label: string; description: string }> = {
-  characters: { label: '人物', description: '已确立的出场角色' },
+  characters: { label: '人物', description: '已确定的出场角色' },
   locations: { label: '地点', description: '故事中出现的关键场景' },
-  items: { label: '物品', description: '推动情节的关键物品' },
+  items: { label: '物品', description: '推动情节的关键物件' },
   worldRules: { label: '世界规则', description: '必须遵守的世界观设定' },
   plotThreads: { label: '剧情线', description: '主要故事脉络' },
   foreshadowing: { label: '伏笔', description: '需要回收或正在推进的伏笔' },
-  timelineEvents: { label: '时间线', description: '关键事件的时间序列' },
+  timelineEvents: { label: '时间线', description: '关键事件的时间顺序' },
 };
-
-// ---- BibleRecord / Chapter status enums (single source of truth) ----
 
 export const BIBLE_RECORD_STATUSES = [
   'active',
+  'deprecated',
   'resolved',
   'lost',
   'deceased',
@@ -44,9 +43,6 @@ export type BibleRecordStatus = (typeof BIBLE_RECORD_STATUSES)[number];
 
 export const CHAPTER_STATUSES = ['draft', 'generated', 'in_review', 'finalized'] as const;
 export type ChapterStatus = (typeof CHAPTER_STATUSES)[number];
-
-// Project-level status (separate enum, kept inline because it's not used as a zod input today).
-// 'active' | 'archived'
 
 export type IssueType =
   | 'character_status_conflict'
@@ -83,10 +79,8 @@ export interface ConsistencyReportSummary {
   status: 'open' | 'resolved' | 'dismissed';
 }
 
-// ---- Brief / Optimized Prompt ----
-
 export interface CreativeBrief {
-  completenessScore: number; // 0-100
+  completenessScore: number;
   refinedIdea: string;
   genre: string;
   tone: string;
@@ -99,11 +93,9 @@ export interface CreativeBrief {
   worldDirection: string;
   writingConstraints: string[];
   missingInfo: string[];
-  directions: string[]; // 3 possible creative directions
+  directions: string[];
   followUpQuestions: string[];
 }
-
-// ---- Story Bible records ----
 
 export interface BibleRecord {
   id: string;
@@ -113,13 +105,10 @@ export interface BibleRecord {
   sourceChapterId?: string;
   evidence?: string;
   updatedAt: string;
-  // Optional, type-specific extras
   attributes?: Record<string, string | number | boolean | string[]>;
 }
 
 export type StoryBibleData = Record<BibleCategory, BibleRecord[]>;
-
-// ---- Chapter outline ----
 
 export interface ChapterOutline {
   goal: string;
@@ -128,8 +117,6 @@ export interface ChapterOutline {
   relatedCharacters: string[];
   relatedForeshadowing: string[];
 }
-
-// ---- Fact extraction ----
 
 export interface CharacterStatusChange {
   character: string;
@@ -148,19 +135,15 @@ export interface FactExtractionPayload {
   timeline: Array<{ name: string; description: string; order: number }>;
 }
 
-// ---- Fix suggestion ----
-
 export interface FixSuggestion {
   explanation: string;
   options: Array<{
     title: string;
     description: string;
-    patch: string; // text fragment to insert or replace
+    patch: string;
   }>;
-  recommended: number; // index into options
+  recommended: number;
 }
-
-// ---- Generation context ----
 
 export interface ChapterGenerationContext {
   brief: CreativeBrief | null;

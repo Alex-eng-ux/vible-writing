@@ -1,6 +1,11 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import { listProjectsAction } from '@/app/actions';
 import NewProjectForm from '@/components/NewProjectForm';
+import {
+  devSignInAction,
+  devSignOutAction,
+  productionGuestSignInAction,
+} from '@/app/actions/dev-auth';
 import { getCurrentUser } from '@/lib/auth';
 import { StatusBadge } from '@/components/ui';
 
@@ -8,11 +13,14 @@ export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const user = await getCurrentUser();
-  // If no session, render a tiny dev login form instead of crashing on
-  // `listProjectsAction` (which would throw `unauthorized`).
+
   if (!user) {
+    if (process.env.NODE_ENV === 'production') {
+      return <ProductionVisitorPrompt />;
+    }
     return <DevLoginPrompt />;
   }
+
   const projects = await listProjectsAction();
 
   return (
@@ -55,14 +63,14 @@ export default async function HomePage() {
                       <h3 className="font-serif text-lg font-semibold text-ink-900">{p.title}</h3>
                       <StatusBadge status={p.status === 'archived' ? 'dismissed' : 'active'} />
                     </div>
-                    <div className="mt-2 line-clamp-3 text-sm text-ink-600">
-                      {p.rawIdea}
-                    </div>
+                    <div className="mt-2 line-clamp-3 text-sm text-ink-600">{p.rawIdea}</div>
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-500">
                       {p.genre ? <span className="chip">{p.genre}</span> : null}
                       {p.targetLength ? <span className="chip">{p.targetLength}</span> : null}
                       {p.stylePreference ? <span className="chip">{p.stylePreference}</span> : null}
-                      <span className="ml-auto">{p._count.chapters} 章 · 更新于 {updated}</span>
+                      <span className="ml-auto">
+                        {p._count.chapters} 章 · 更新于 {updated}
+                      </span>
                     </div>
                   </Link>
                 </li>
@@ -76,7 +84,7 @@ export default async function HomePage() {
         <div className="card sticky top-20 p-5">
           <h2 className="font-serif text-lg font-semibold text-ink-900">创建新作品</h2>
           <p className="mt-1 text-sm text-ink-500">
-            先输入一段原始创意。下一步会自动进入「提示词优化」页面。
+            先输入一段原始创意。下一步会自动进入“提示词优化”页面。
           </p>
           <div className="mt-4">
             <NewProjectForm />
@@ -87,8 +95,6 @@ export default async function HomePage() {
   );
 }
 
-// Tiny dev login card. Production builds should swap this for a real
-// NextAuth/Lucia login page.
 function DevLoginPrompt() {
   return (
     <div className="mx-auto mt-16 max-w-md">
@@ -108,13 +114,36 @@ function DevLoginPrompt() {
             required
             minLength={1}
             maxLength={80}
-            placeholder="例如：alice"
+            placeholder="例如：Alice"
             className="rounded border border-ink-300 px-3 py-2 text-sm text-ink-900 focus:border-ink-700 focus:outline-none"
           />
           <button className="btn-primary mt-1" type="submit">
             登录
           </button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function ProductionVisitorPrompt() {
+  return (
+    <div className="mx-auto mt-16 max-w-2xl">
+      <div className="card p-8 text-center">
+        <h1 className="font-serif text-2xl font-semibold text-ink-900">Vible Writing</h1>
+        <p className="mt-3 text-sm leading-7 text-ink-600">
+          当前测试服已经部署成功。你可以先接入真实 API，再直接进入工作台创建项目、生成章节和做一致性检查。
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <Link href="/settings/ai" className="btn">
+            AI 设置
+          </Link>
+          <form action={productionGuestSignInAction}>
+            <button className="btn-primary" type="submit">
+              进入工作台
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

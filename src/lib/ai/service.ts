@@ -1,14 +1,4 @@
 // Unified AI service. Every AI capability lives here.
-// All public functions:
-//   - have TypeScript types
-//   - return structured objects
-//   - have a deterministic mock fallback
-//   - are safe to call from server actions / API routes
-//
-// The actual HTTP plumbing lives behind the `ChatModel` abstraction in
-// `./providers/`. To add a new model backend, edit one file under
-// `./providers/` and one branch in `./providers/registry.ts` — nothing here
-// needs to change.
 
 import { PROMPTS } from './prompts';
 import {
@@ -33,35 +23,24 @@ import type {
 } from '@/types/domain';
 import { getModel, isMockMode as registryIsMockMode } from './providers/registry';
 import { InfraError, UserError, isInfraError, logError } from '@/lib/errors';
-import { withRetry } from './retry';
 
-// ---------- Model wiring (re-exports for back-compat) ----------
-
-// ChapterEditor.tsx imports this type from '@/lib/ai/service'.
-// Re-export it from the domain types so that import path keeps working.
 export type { ChapterGenerationContext };
 
-// layout.tsx (and any other external caller) imports `isMockMode` from
-// '@/lib/ai/service'. Re-export from the registry so the public surface is
-// unchanged.
-export const isMockMode: () => boolean = registryIsMockMode;
+export const isMockMode = registryIsMockMode;
 
 function safeJson<T>(raw: string): T {
-  // Strip code fences if the model wrapped JSON in ```json ... ```.
   const trimmed = raw.trim();
   if (trimmed.startsWith('```')) {
     const inner = trimmed.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
     try {
       return JSON.parse(inner) as T;
     } catch {
-      // fall through to non-greedy extraction
+      // fall through
     }
   }
-  // Try strict parse first.
   try {
     return JSON.parse(trimmed) as T;
   } catch {
-    // Non-greedy extraction: find the first balanced JSON object/array.
     const objMatch = trimmed.match(/\{[\s\S]*?\}/);
     const arrMatch = trimmed.match(/\[[\s\S]*?\]/);
     const candidate = objMatch?.[0] || arrMatch?.[0];
@@ -74,39 +53,36 @@ function safeJson<T>(raw: string): T {
     }
     throw new InfraError(
       'safeJson failed to parse LLM response as JSON',
-      'AI 返回的格式无法解析，已切换到占位数据。',
+      'AI 返回的数据格式无法解析，已切换到占位数据。',
       'llm_invalid_json'
     );
   }
 }
 
 async function runOrMock<T>(prompt: string, mockFn: () => T): Promise<{ value: T; mock: boolean }> {
-  if (isMockMode()) return { value: mockFn(), mock: true };
+  if (await isMockMode()) return { value: mockFn(), mock: true };
   try {
-    const model = getModel();
+    const model = await getModel();
     if (!model) return { value: mockFn(), mock: true };
     const raw = await model.complete([{ role: 'user', content: prompt }], { jsonMode: true });
     return { value: safeJson<T>(raw), mock: false };
   } catch (err) {
-    // We deliberately degrade to mock data on any LLM failure so the
-    // editor still works when the user's API key is bad, the network is
-    // flaky, or the model returns a weird shape. The original InfraError
-    // is logged on the server for debugging.
     if (!isInfraError(err)) {
-      logError('runOrMock', new InfraError(
-        (err as Error)?.message || String(err),
-        'AI 服务暂时不可用，已切换到占位数据。',
-        'llm_unexpected_error',
-        err
-      ));
+      logError(
+        'runOrMock',
+        new InfraError(
+          (err as Error)?.message || String(err),
+          'AI 服务暂时不可用，已切换到占位数据。',
+          'llm_unexpected_error',
+          err
+        )
+      );
     } else {
       logError('runOrMock', err);
     }
     return { value: mockFn(), mock: true };
   }
 }
-
-// ---------- Public API ----------
 
 export type OptimizePromptResult = CreativeBrief & { mock: boolean };
 
@@ -124,12 +100,13 @@ export async function optimizePrompt(input: {
 }
 
 export async function generateStoryFoundation(brief: CreativeBrief) {
-  // For MVP, story foundation is generated via a rule-based transformation of the brief.
-  // This is fine to keep deterministic so the Story Bible always has something to show.
   return mockStoryFoundation(brief);
 }
 
-export type GenerateOutlineResult = { chapters: Awaited<ReturnType<typeof mockGenerateOutline>>; mock: boolean };
+export type GenerateOutlineResult = {
+  chapters: Awaited<ReturnType<typeof mockGenerateOutline>>['chapters'];
+  mock: boolean;
+};
 
 export async function generateOutline(
   brief: CreativeBrief,
@@ -139,7 +116,7 @@ export async function generateOutline(
     PROMPTS.generateOutline({ refinedIdea: brief.refinedIdea, totalChapters }),
     () => mockGenerateOutline(brief, totalChapters)
   );
-  return { chapters: value, mock };
+  return { chapters: value.chapters, mock };
 }
 
 export type GenerateChapterResult = { content: string; summary: string; mock: boolean };
@@ -184,9 +161,13 @@ export async function continueChapter(ctx: {
 
 export type PolishTextResult = { content: string; mock: boolean };
 
-export async function polishText(input: { text: string; mode: 'selection' | 'full' }): Promise<PolishTextResult> {
-  const { value, mock } = await runOrMock(PROMPTS.polishText({ text: input.text, mode: input.mode }), () =>
-    mockPolishText(input.text)
+export async function polishText(input: {
+  text: string;
+  mode: 'selection' | 'full';
+}): Promise<PolishTextResult> {
+  const { value, mock } = await runOrMock(
+    PROMPTS.polishText({ text: input.text, mode: input.mode }),
+    () => mockPolishText(input.text)
   );
   return { ...value, mock };
 }
@@ -259,14 +240,12 @@ export async function generateFixSuggestion(input: {
   issue: ConsistencyIssue;
   chapterContent: string;
 }): Promise<GenerateFixSuggestionResult> {
-  const { value, mock } = await runOrMock(PROMPTS.generateFix(input), () => mockGenerateFix(input.issue));
+  const { value, mock } = await runOrMock(PROMPTS.generateFix(input), () =>
+    mockGenerateFix(input.issue)
+  );
   return { suggestion: value, mock };
 }
 
-// Pure helper. Reserved for a future "auto-apply" feature.
-// 'append' (default) safely appends the patch. 'replace' also requires the
-// caller to pass an explicit `original` so we can refuse to silently nuke
-// the existing chapter when the AI hallucinates a target.
 export function applyPatchToChapter(
   content: string,
   patch: string,
@@ -274,20 +253,15 @@ export function applyPatchToChapter(
 ): string {
   if (options.mode === 'replace') {
     if (!options.original) {
-      // Programmer error — `applyPatchToChapter` requires the caller to
-      // pass the original snippet when using 'replace'. This is not
-      // user-recoverable.
       throw new InfraError(
-        'applyPatchToChapter: replace 模式必须提供 original',
+        'applyPatchToChapter: replace mode requires original',
         '系统内部错误：无法应用补丁。',
         'apply_patch_missing_original'
       );
     }
     if (!content.includes(options.original)) {
-      // The user's text moved between when we read it and when the AI
-      // produced the patch. The user can re-select and retry.
       throw new UserError(
-        '原选段已被修改，无法定位。请重新选中要替换的文本。',
+        '原选段已经被修改，无法定位。请重新选中要替换的文本。',
         'apply_patch_stale_original'
       );
     }

@@ -105,7 +105,7 @@ export async function withRetry<T>(
   opts: WithRetryOptions = {}
 ): Promise<T> {
   const schedule = opts.schedule ?? DEFAULT_BACKOFF;
-  const totalRetries = opts.retries ?? schedule.length;
+  const totalRetries = opts.retries ?? Math.max(schedule.length, DEFAULT_BACKOFF.length);
   const isRetryable = opts.isRetryable ?? isRetryableError;
   const sleep = opts.sleep ?? defaultSleep;
   const label = opts.label ?? 'withRetry';

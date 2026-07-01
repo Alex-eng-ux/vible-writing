@@ -367,79 +367,34 @@ export function mockGenerateFix(issue: ConsistencyIssue): FixSuggestion {
 }
 
 export function mockStoryFoundation(brief: CreativeBrief): StoryBibleData {
-  // Build a `Partial<Record<BibleCategory, BibleRecord[]>>` with the categories
-  // that have a meaningful initial seed. Missing categories are filled with
-  // empty arrays below, so the return type is a full `StoryBibleData` whose
-  // shape is driven by the `BIBLE_CATEGORIES` registry in `domain.ts`.
+  const stamp = now();
+  const record = (
+    name: string,
+    description: string,
+    attributes?: BibleRecord['attributes']
+  ): BibleRecord => ({
+    id: newId('bible'),
+    name,
+    description,
+    status: 'active',
+    updatedAt: stamp,
+    attributes,
+  });
+
   const partial: Partial<Record<BibleCategory, BibleRecord[]>> = {
     characters: [
-      {
-        name: brief.protagonist.name || '沈砚',
-        description: brief.protagonist.summary,
-        status: 'active',
-        attributes: { role: '主角' },
-      },
-      {
-        name: '林澈',
-        description: '主角的同行者，理性、克制，掌握部分关键线索。',
-        status: 'active',
-        attributes: { role: '搭档' },
-      },
-      {
-        name: '未知对手',
-        description: brief.coreConflict,
-        status: 'active',
-        attributes: { role: '对立面' },
-      },
-    ] as BibleRecord[],
-    locations: [
-      {
-        name: '城市档案馆',
-        description: brief.worldDirection,
-        status: 'active',
-      },
-    ] as BibleRecord[],
-    items: [
-      {
-        name: '旧物',
-        description: '与主角过去有关的信物，尚未揭示来历。',
-        status: 'active',
-      },
-    ] as BibleRecord[],
-    worldRules: [
-      {
-        name: '信息封锁',
-        description: '组织通过删改公共记录与私人记忆来维持秩序。',
-        status: 'active',
-      },
-    ] as BibleRecord[],
-    plotThreads: [
-      {
-        name: '失落的记忆',
-        description: '主角试图找回被抹去的过去。',
-        status: 'active',
-      },
-    ] as BibleRecord[],
-    foreshadowing: [
-      {
-        name: '失落的信物',
-        description: '主角随身携带的旧物将在后续揭示关键真相。',
-        status: 'active',
-      },
-    ] as BibleRecord[],
-    timelineEvents: [
-      {
-        name: '开篇事件',
-        description: '主角原本平静的生活被打破。',
-        status: 'active',
-        order: 1,
-      },
-    ] as BibleRecord[],
+      record(brief.protagonist.name || '沈砚', brief.protagonist.summary, { role: '主角' }),
+      record('林澈', '主角的同行者，理性、克制，掌握部分关键线索。', { role: '搭档' }),
+      record('未知对手', brief.coreConflict, { role: '对立面' }),
+    ],
+    locations: [record('城市档案馆', brief.worldDirection)],
+    items: [record('旧物', '与主角过去有关的信物，尚未揭示来历。')],
+    worldRules: [record('信息封锁', '组织通过删改公共记录与私人记忆来维持秩序。')],
+    plotThreads: [record('失落的记忆', '主角试图找回被抹去的过去。')],
+    foreshadowing: [record('失落的信物', '主角随身携带的旧物将在后续揭示关键真相。')],
+    timelineEvents: [record('开篇事件', '主角原本平静的生活被打破。', { order: 1 })],
   };
 
-  // Merge with empty arrays for any category the partial didn't seed, so the
-  // returned object is a complete `StoryBibleData`. Driven by the registry,
-  // so adding / removing a category needs no edit to this function's keys.
   return Object.fromEntries(
     BIBLE_CATEGORIES.map((c) => [c, partial[c] ?? []])
   ) as StoryBibleData;

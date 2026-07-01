@@ -63,7 +63,7 @@ const validOutline = {
 describe('parseInput', () => {
   it('returns the parsed data on success', () => {
     const out = parseInput(
-      { projectId: 'p1', title: 'Hello' },
+      { rawIdea: 'An idea', title: 'Hello' },
       createProjectSchema,
       'createProject'
     );

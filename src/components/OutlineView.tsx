@@ -39,7 +39,7 @@ export default function OutlineView({
   const active = chapters.find((c) => c.id === activeId) || null;
 
   // Keep the local list in sync when the parent re-renders with server data.
-  // Intentionally NOT depending on `activeId` here — the effect is only about
+  // Intentionally NOT depending on `activeId` here - the effect is only about
   // syncing the chapter list, not about reactively re-setting the active selection.
   useEffect(() => {
     setChapters(initialChapters);
@@ -53,7 +53,7 @@ export default function OutlineView({
 
   function generate() {
     if (!hasBrief) {
-      setError('请先在「提示词」页面完成优化并采用结果。');
+      setError('请先在“提示词”页面完成优化并采用结果。');
       return;
     }
     setError(null);
@@ -67,7 +67,6 @@ export default function OutlineView({
     startTransition(async () => {
       try {
         await generateOutlineAction(projectId, totalChapters, { confirmReplace: willReplace });
-        // Re-fetch the canonical chapter list (with real DB IDs) from the server.
         router.refresh();
         flash(willReplace ? '已重新生成大纲' : '已生成大纲');
       } catch (err) {
@@ -85,9 +84,7 @@ export default function OutlineView({
   }
 
   function saveOutline(c: ChapterRow, next: ChapterOutline) {
-    setChapters((list) =>
-      list.map((x) => (x.id === c.id ? { ...x, outline: next } : x))
-    );
+    setChapters((list) => list.map((x) => (x.id === c.id ? { ...x, outline: next } : x)));
     startTransition(async () => {
       try {
         await updateChapterOutlineAction(c.id, next);
@@ -154,7 +151,9 @@ export default function OutlineView({
                   min={3}
                   max={50}
                   value={totalChapters}
-                  onChange={(e) => setTotalChapters(Math.max(3, Math.min(50, Number(e.target.value) || 8)))}
+                  onChange={(e) =>
+                    setTotalChapters(Math.max(3, Math.min(50, Number(e.target.value) || 8)))
+                  }
                   className="input w-20"
                 />
               </label>
@@ -172,7 +171,7 @@ export default function OutlineView({
           {error ? <div className="text-xs text-danger">{error}</div> : null}
           {!hasBrief ? (
             <div className="text-sm text-ink-500">
-              尚未采用任何 brief。请先访问「提示词」页面生成并采用优化结果。
+              尚未采用任何 brief。请先访问“提示词”页面生成并采用优化结果。
             </div>
           ) : (
             <div className="text-sm text-ink-500">准备就绪。</div>
@@ -182,7 +181,7 @@ export default function OutlineView({
         {active ? (
           <Section
             title={`第 ${active.chapterNumber} 章 · ${active.title}`}
-            description="每个字段都支持独立编辑。保存后会自动参与下一章的生成上下文。"
+            description="每个字段都支持独立编辑。保存后会自动参与下一章节的生成上下文。"
             right={
               <div className="flex items-center gap-2">
                 <input
@@ -204,13 +203,13 @@ export default function OutlineView({
                 onClick={() => router.push(`/projects/${projectId}/chapters/${active.id}`)}
                 type="button"
               >
-                进入章节编辑器 →
+                进入章节编辑器 {'->'}
               </button>
             </div>
           </Section>
         ) : (
           <div className="card-soft px-6 py-8 text-center text-sm text-ink-500">
-            从左侧选择章节，或先点击「生成大纲」。
+            从左侧选择章节，或先点击“生成大纲”。
           </div>
         )}
       </main>
@@ -225,9 +224,6 @@ function OutlineEditor({
   outline: ChapterOutline | null;
   onChange: (o: ChapterOutline) => void;
 }) {
-  // Memoize the fallback so a new object isn't allocated on every keystroke
-  // (which would also re-allocate every onChange closure and trigger deep
-  // re-renders in the parent).
   const o: ChapterOutline = useMemo(
     () =>
       outline ?? {
@@ -241,7 +237,7 @@ function OutlineEditor({
   );
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <Field label="章节目标" hint="本章要解决什么 / 推动什么">
+      <Field label="章节目标" hint="本章要解决什么 / 推动什么？">
         <textarea
           rows={3}
           className="textarea"
@@ -262,7 +258,12 @@ function OutlineEditor({
           rows={4}
           className="textarea"
           value={o.requiredBeats.join('\n')}
-          onChange={(e) => onChange({ ...o, requiredBeats: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })}
+          onChange={(e) =>
+            onChange({
+              ...o,
+              requiredBeats: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean),
+            })
+          }
         />
       </Field>
       <Field label="关联伏笔" hint="每行一个">
@@ -270,15 +271,35 @@ function OutlineEditor({
           rows={4}
           className="textarea"
           value={o.relatedForeshadowing.join('\n')}
-          onChange={(e) => onChange({ ...o, relatedForeshadowing: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })}
+          onChange={(e) =>
+            onChange({
+              ...o,
+              relatedForeshadowing: e.target.value
+                .split('\n')
+                .map((s) => s.trim())
+                .filter(Boolean),
+            })
+          }
         />
       </Field>
-      <Field label="关联角色" className="md:col-span-2" hint="每行一个，名字需与 Story Bible 一致">
+      <Field
+        label="关联角色"
+        className="md:col-span-2"
+        hint="每行一个，名字需与 Story Bible 保持一致"
+      >
         <textarea
           rows={3}
           className="textarea"
           value={o.relatedCharacters.join('\n')}
-          onChange={(e) => onChange({ ...o, relatedCharacters: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })}
+          onChange={(e) =>
+            onChange({
+              ...o,
+              relatedCharacters: e.target.value
+                .split('\n')
+                .map((s) => s.trim())
+                .filter(Boolean),
+            })
+          }
         />
       </Field>
     </div>

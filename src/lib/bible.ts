@@ -59,7 +59,10 @@ function readBibleRow(row: StoryBibleRow): StoryBibleData {
 }
 
 function makeEmptyBible(): StoryBibleData {
-  return Object.fromEntries(BIBLE_CATEGORIES.map((c) => [c, []])) as StoryBibleData;
+  return BIBLE_CATEGORIES.reduce((acc, category) => {
+    acc[category] = [];
+    return acc;
+  }, {} as StoryBibleData);
 }
 
 export const EMPTY_BIBLE: StoryBibleData = makeEmptyBible();
